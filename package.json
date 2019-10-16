@@ -2,7 +2,7 @@
     "name": "hclrs-lang-support",
     "displayName": "HCLRS Language Support",
     "description": "This package provides syntax highlighting for the HCLRS hardware description language",
-    "version": "0.0.1",
+    "version": "1.0.0",
     "engines": {
         "vscode": "^1.39.0"
     },
