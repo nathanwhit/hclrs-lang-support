@@ -1,0 +1,452 @@
+#################################################################
+## Iro
+################################################################ 
+##
+## * Press Ctrl + '+'/'-' To Zoom in
+## * Press Ctrl + S to save and recalculate... 
+## * Documents are saved to web storage.
+## * Only one save slot supported.
+## * Matches cannot span lines.
+## * Unicode chars must be defined in \u0000 to \uffff format.
+## * All matches must be contained by a single group ( ... )
+## * Look behinds not permitted, (?<= or (?<!
+## * Look forwards are permitted (?= or (?!
+## * Constants are defined as __my_const = (......)
+## * The \= format allows unescaped regular expressions
+## * Constants referenced by match \= $${__my_const}
+## * Constants can reference other constants
+## * You are free to delete all the default scopes.
+## * Twitter : ainslec , Web: http://eeyo.io/iro
+##
+################################################################
+
+name                   = hclrs
+file_extensions []     = hcl;
+
+################################################################
+## Constants
+################################################################
+
+__REG \= register
+__WIRE \= wire
+
+################################################################
+## Styles
+################################################################
+
+styles [] {
+
+.support_vars : style {
+   color                 = cyan
+   textmate_scope        = entity.name.function
+}
+
+.comment : style {
+   color                 = light_green
+   italic                = true
+   ace_scope             = comment
+   textmate_scope        = comment
+   pygments_scope        = Comment
+}
+
+.keyword : style {
+   color     = cyan
+   ace_scope             = keyword
+   textmate_scope        = keyword
+   pygments_scope        = Keyword
+}
+
+.variable     : style {
+   color                = purple
+   ace_scope            = variable
+   textmate_scope       = variable
+   pygments_scope       = Name.Variable
+}
+
+.field        : style {
+   color                = violet
+   ace_scope            = variable
+   textmate_scope       = variable
+   pygments_scope       = Name.Variable
+}
+
+.numeric : style {
+   color                 = gold
+   ace_scope             = constant.numeric
+   textmate_scope        = constant.numeric
+   pygments_scope        = Number
+}
+
+.punctuation : style {
+   color     = red_2
+   ace_scope             = punctuation
+   textmate_scope        = punctuation
+   pygments_scope        = Punctuation
+}
+
+.illegal : style {
+   color                 = white
+   background_color      = red
+   ace_scope             = invalid
+   textmate_scope        = invalid
+   pygments_scope        = Generic.Error
+}
+
+.none : style {
+   color                = white
+}
+
+}
+
+#################################################
+## Parse contexts
+#################################################
+
+contexts [] {
+
+##############################################
+## Main Context - Entry point context
+##############################################
+
+main : context {
+   
+   : push {
+      regex          \= ($${__REG})
+      styles []       = .keyword;
+      context []      = regfile_decl;
+   }
+   
+   : inline_push {
+      regex          \= ($${__WIRE})
+      styles []       = .keyword;
+      : pop {
+         regex       \= (;)
+         styles []    = .punctuation;
+      }
+      : push {
+         regex       \= (?=[a-zA-Z]+[a-zA-Z0-9]*)
+         styles []    = .variable;
+         context []   = wire_spec;
+      }
+   }
+   
+   : inline_push {
+      regex          \= (const)
+      styles []       = .keyword;
+      : pop {
+         regex       \= (;)
+         styles []    = .punctuation;
+      }
+      : include "const_keyword";
+      : include "wire_ident";
+      : inline_push {
+         regex       \= (=)
+         styles []    = .punctuation;
+         : pop {
+            regex    \= (?=;)
+            styles [] = .punctuation;
+         }
+         : include "numeric";
+         : include "const_keyword";
+      }
+   }
+   
+   // : include "numeric" ;
+   
+   : inline_push {
+      regex          \= (\{)
+      styles []       = .punctuation;
+      : pop {  
+         regex       \= (\})
+         styles []    = .punctuation;
+      }
+      : include "main" ;
+   }
+   
+   : include "comment";
+   : include "builtin_vars";
+   : include "wire_ident";
+   : include "regfile_access";
+   
+   : inline_push {
+      regex          \= (=)
+      styles []       = .punctuation;
+      : pop {
+         regex       \= (;)
+         styles []    = .punctuation;
+      }
+      : include "mux";
+      : include "regfile_access";
+      : include "wire_ident";
+      : include "slice";
+      : include "const_keyword";
+      : include "bool_expr";
+      : include "numeric";
+      
+   }
+   
+   : pattern {
+      regex          \= ([^\s])
+      styles []       = .illegal;
+   }
+   
+   
+}
+
+comment : context {
+   : pattern {
+      regex          \= ((#.*)|(//.*))
+      styles []       = .comment;
+   }
+   : include "multi_line_comment";
+}
+
+regfile_decl : context {
+   : pop {
+      regex          \= (\};?)
+      styles []       = .punctuation;
+   }
+   : pattern {
+      regex          \= ([a-z][A-Z])
+      styles []       = .variable;
+   }
+   : inline_push {
+      regex          \= (\{)
+      styles []       = .punctuation;
+      : pop {
+         regex       \= (?=\})
+         styles []    = .punctuation;
+      }
+      : push {
+         regex       \= (?=[a-zA-Z]+[a-zA-Z0-9]*)
+         styles []    = .none;
+         context []   = wire_spec;
+      }
+      : include "comment";
+      : pattern {
+         regex       \= (;)
+         styles []    = .punctuation;
+      }
+   }
+}
+
+wire_spec   : context {
+   : pop {
+      regex          \= (,|(?=;))
+      styles []       = .punctuation;
+   }
+   : pattern {
+      regex          \= ([a-zA-Z]+[a-zA-Z0-9]*)
+      styles []       = .variable;
+   }
+   : inline_push {
+      regex          \= (:)
+      styles []       = .punctuation;
+      : pop {
+         regex       \= (?=[,;])
+         styles []    = .punctuation;
+      }
+      : include "numeric";
+      : inline_push {
+         regex       \= (\=)
+         styles []    = .punctuation;
+         : pop {
+            regex    \= (?=[,;])
+            styles [] = .punctuation;
+         }
+         : include "numeric";
+         : include "const_keyword";
+      }
+   }
+}
+
+mux : context {
+   : inline_push {
+      regex             \= (\[)
+      styles []          = .punctuation;
+      : pop {
+         regex          \= (\])
+         styles []       = .punctuation;
+      }
+      : pattern {
+         regex          \= (1(?!\d))
+         styles []       = .numeric;
+      }
+      : include "builtin_vars";
+      : include "bool_expr";
+      : inline_push {
+         regex          \= (:)
+         styles []       = .punctuation;
+         : pop {
+            regex       \= (;)
+            styles []    = .punctuation;
+         }
+         : include "mux";
+         : include "builtin_vars";
+         : include "regfile_access";
+         : include "wire_ident";
+         : include "slice";
+         : include "numeric";
+         : include "const_keyword";
+         : include "bool_expr";
+         
+      }
+      : pattern {
+         regex          \= (\.\.)
+         styles []       = .punctuation;
+      }
+      : include "comment";
+   }
+}
+
+bool_expr : context {
+   : include "regfile_access";
+   : include "const_keyword";
+   : include "wire_ident";
+   : include "numeric";
+   : include "slice";
+   : pattern {
+      regex          \= (&&|\|\|)
+      styles []       = .punctuation;
+   }
+   : pattern {
+      regex          \= ((==)|(!=)|(<=)|(>=)|<|>)
+      styles []       = .punctuation;
+   }
+   : inline_push {
+      regex          \= (\bin\b)
+      styles []       = .keyword;
+      : pop {
+         regex       \= (\})
+         styles []    = .punctuation;
+      }
+      : pattern {
+         regex       \= (\{)
+         styles []    = .punctuation;
+      }
+      : pattern {
+         regex       \= (,)
+         styles []    = .punctuation;
+      }
+      : include "slice";
+      : include "numeric";
+      : include "const_keyword";
+      : include "regfile_access";
+   }
+   : inline_push {
+      regex          \= (\()
+      styles          = .punctuation
+      : pop {
+         regex       \= (\))
+         styles       = .punctuation
+      }
+      : include "bool_expr";
+   }
+}
+
+#################################################
+## End of Contexts
+#################################################
+
+###########################################
+## Identifier/Keywords Context
+###########################################
+
+const_keyword : context {
+   : pattern {
+      regex          \= ([A-Z_]+)
+      styles []       = .numeric;
+   }
+}
+
+builtin_vars : context {
+   : pattern {
+      regex          \= ((reg_[a-zA-Z]+)|(stall_[a-zA-Z])|(bubble_[a-zA-Z])|(valE)|(valM)|(dst_E)|(dst_M)|(\bStat\b)|(mem_[a-zA-Z]+)|(\bpc\b))
+      styles []       = .support_vars;
+   }
+}
+
+regfile_access : context {
+   : inline_push {
+      regex          \= ([a-zA-Z](?=_))
+      styles []       = .variable;
+      : pop {
+         regex       \= ([a-zA-Z][a-zA-Z0-9]*\b)
+         styles []    = .field;
+      }
+      : pattern {
+         regex       \= (_)
+         styles []    = .variable;
+      }
+   }
+}
+
+slice : context {
+   : inline_push {
+      regex          \= (\[)
+      styles []       = .punctuation;
+      : pop {
+         regex       \= (\])
+         styles []    = .punctuation;
+      }
+      : include "numeric";
+      : include "const_keyword";
+      : pattern {
+         regex       \= (\.\.)
+         styles []    = .punctuation;
+      }
+   }
+   : pattern {
+      regex       \= (\.\.)
+      styles []    = .punctuation;
+   }
+}
+
+wire_ident : context {
+   : pattern {
+      regex          \= ([a-zA-Z][a-zA-Z0-9]*\b)
+      styles []       = .variable;
+   }
+}
+
+###########################################
+## Numeric Context
+###########################################
+
+numeric : context {
+   : pattern {
+      regex          \= (0x[0-9a-fA-F]+)
+      styles []       = .numeric;
+   }
+   : pattern {
+      regex          \= (0b[01]+)
+      styles []       = .numeric;
+   }
+   : pattern {
+      regex          \= (\b\d+)
+      styles []       = .numeric;
+   }
+   : pattern {
+      regex          \= (\+|\*|-|/|(&)|(\|)|(\^)|(!)|(~))
+      styles []       = .punctuation;
+   }
+}
+
+###########################################
+## Multi Line Comment Context
+###########################################
+
+multi_line_comment : context {
+   description        = multiline
+   : inline_push {
+      regex          \= (/\*)
+      default_style   = .comment
+      styles []       = .comment;
+      : pop {
+         regex       \= (\*/)
+         styles []    = .comment;
+      }
+   }
+}
+   
+}

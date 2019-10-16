@@ -1,0 +1,25 @@
+{
+    "name": "hclrs-lang-support",
+    "displayName": "HCLRS Language Support",
+    "description": "This package provides syntax highlighting for the HCLRS hardware description language",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.39.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [{
+            "id": "hclrs",
+            "aliases": ["HCLRS", "hclrs"],
+            "extensions": [".hcl"],
+            "configuration": "./language-configuration.json"
+        }],
+        "grammars": [{
+            "language": "hclrs",
+            "scopeName": "source.hclrs",
+            "path": "./syntaxes/hclrs.tmLanguage"
+        }]
+    }
+}
