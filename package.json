@@ -3,6 +3,8 @@
     "displayName": "HCLRS Language Support",
     "description": "This package provides syntax highlighting for the HCLRS hardware description language",
     "version": "1.0.0",
+    "publisher": "nathanwhit",
+    "repository": {"url": "https://github.com/nathanwhit/hclrs-lang-support", "type": "git"},
     "engines": {
         "vscode": "^1.39.0"
     },
